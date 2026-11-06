@@ -7,8 +7,10 @@ import Citas from './components/Citas'
 import Servicios from './components/Servicios'
 import Repuestos from './components/Repuestos'
 
-// Lee los registros guardados en localStorage.
-// Si no existen datos o hay algún problema, devuelve un arreglo vacío.
+// Dirección del backend Spring Boot.
+const API_URL = 'http://localhost:8080/api/auth'
+
+// Lee los registros guardados en LocalStorage.
 function leerRegistros(clave) {
   try {
     const datos = JSON.parse(localStorage.getItem(clave) || '[]')
@@ -30,15 +32,297 @@ const menuItems = [
 function App() {
   const [activeSection, setActiveSection] = useState('inicio')
 
-  // Consultar los datos reales de cada módulo.
-  // Estos valores se vuelven a calcular cuando React renderiza el panel.
+  // Estado temporal de autenticación.
+  const [usuarioActual, setUsuarioActual] = useState(null)
+
+  // Estados del formulario.
+  const [modoRegistro, setModoRegistro] = useState(false)
+  const [nombreUsuario, setNombreUsuario] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmarPassword, setConfirmarPassword] = useState('')
+  const [mensaje, setMensaje] = useState('')
+  const [tipoMensaje, setTipoMensaje] = useState('')
+  const [cargando, setCargando] = useState(false)
+
+  // Registrar o iniciar sesión mediante Spring Boot.
+  async function manejarAutenticacion(event) {
+    event.preventDefault()
+    setMensaje('')
+    setTipoMensaje('')
+
+    const usuario = nombreUsuario.trim()
+
+    if (!usuario || !password) {
+      setMensaje('Debes completar todos los campos.')
+      setTipoMensaje('error')
+      return
+    }
+
+    if (modoRegistro) {
+      if (usuario.length < 3) {
+        setMensaje('El usuario debe tener al menos 3 caracteres.')
+        setTipoMensaje('error')
+        return
+      }
+
+      if (password.length < 8) {
+        setMensaje('La contraseña debe tener al menos 8 caracteres.')
+        setTipoMensaje('error')
+        return
+      }
+
+      if (password !== confirmarPassword) {
+        setMensaje('Las contraseñas no coinciden.')
+        setTipoMensaje('error')
+        return
+      }
+    }
+
+    setCargando(true)
+
+    try {
+      const endpoint = modoRegistro ? '/registro' : '/login'
+
+      const respuesta = await fetch(`${API_URL}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          nombreUsuario: usuario,
+          password,
+        }),
+      })
+
+      const datos = await respuesta.json()
+
+      if (!respuesta.ok || !datos.autenticado) {
+        throw new Error(datos.mensaje || 'No fue posible completar la operación.')
+      }
+
+      if (modoRegistro) {
+        setMensaje('Cuenta creada correctamente. Ahora puedes iniciar sesión.')
+        setTipoMensaje('exito')
+        setModoRegistro(false)
+        setPassword('')
+        setConfirmarPassword('')
+      } else {
+        setUsuarioActual(datos.nombreUsuario || usuario)
+        setActiveSection('inicio')
+        setNombreUsuario('')
+        setPassword('')
+        setConfirmarPassword('')
+      }
+    } catch (error) {
+      if (error instanceof TypeError) {
+        setMensaje('No se pudo conectar con el servidor. Comprueba que Spring Boot esté funcionando.')
+      } else {
+        setMensaje(error.message)
+      }
+
+      setTipoMensaje('error')
+    } finally {
+      setCargando(false)
+    }
+  }
+
+  function cambiarModo() {
+    setModoRegistro(!modoRegistro)
+    setMensaje('')
+    setTipoMensaje('')
+    setPassword('')
+    setConfirmarPassword('')
+  }
+
+  function cerrarSesion() {
+    setUsuarioActual(null)
+    setActiveSection('inicio')
+    setNombreUsuario('')
+    setPassword('')
+    setMensaje('')
+    setTipoMensaje('')
+  }
+
+  // Pantalla de acceso.
+  if (!usuarioActual) {
+    return (
+      <main className="auth-screen">
+        <div className="auth-background-grid"></div>
+        <div className="auth-glow auth-glow-cyan"></div>
+        <div className="auth-glow auth-glow-yellow"></div>
+
+        <section className="auth-container">
+
+          <div className="auth-visual">
+            <div className="auth-visual-top">
+              <span className="auth-logo">R</span>
+              <div>
+                <strong>ROLO'S</strong>
+                <span>MOTOS CARS</span>
+              </div>
+            </div>
+
+            <div className="auth-visual-content">
+              <span className="auth-tag">TALLER INTELIGENTE // 2026</span>
+
+              <h1>
+                EL FUTURO
+                <br />
+                <span>SE MANTIENE</span>
+                <br />
+                EN MOVIMIENTO.
+              </h1>
+
+              <p>
+                Tecnología, precisión y potencia para la gestión
+                inteligente de motocicletas y automóviles.
+              </p>
+
+              <div className="auth-tech-lines">
+                <span>01 // CONTROL</span>
+                <span>02 // PRECISIÓN</span>
+                <span>03 // POTENCIA</span>
+              </div>
+            </div>
+
+            <div className="auth-visual-footer">
+              <span>ROLO'S MOTOS CARS</span>
+              <span>SYSTEM ONLINE</span>
+            </div>
+
+            <div className="auth-helmet">
+              <div className="helmet-ring"></div>
+              <div className="helmet-shape">
+                <div className="helmet-eye"></div>
+                <div className="helmet-face"></div>
+                <div className="helmet-jaw"></div>
+              </div>
+              <span className="helmet-label">CYBER UNIT // R-01</span>
+            </div>
+          </div>
+
+          <div className="auth-form-panel">
+            <div className="auth-form-heading">
+              <span className="auth-eyebrow">
+                SISTEMA DE IDENTIFICACIÓN
+              </span>
+
+              <h2>
+                {modoRegistro ? 'Crear cuenta' : 'Bienvenido'}
+                <span>.</span>
+              </h2>
+
+              <p>
+                {modoRegistro
+                  ? 'Registra un usuario para acceder a la plataforma.'
+                  : 'Identifícate para acceder al centro de operaciones.'}
+              </p>
+            </div>
+
+            <form className="auth-form" onSubmit={manejarAutenticacion}>
+              <label htmlFor="auth-username">NOMBRE DE USUARIO</label>
+              <input
+                id="auth-username"
+                type="text"
+                placeholder="Ingresa tu usuario"
+                value={nombreUsuario}
+                onChange={(event) => setNombreUsuario(event.target.value)}
+                minLength={modoRegistro ? 3 : undefined}
+                maxLength={50}
+                autoComplete="username"
+                required
+                disabled={cargando}
+              />
+
+              <label htmlFor="auth-password">CONTRASEÑA</label>
+              <input
+                id="auth-password"
+                type="password"
+                placeholder="Ingresa tu contraseña"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                minLength={modoRegistro ? 8 : undefined}
+                maxLength={72}
+                autoComplete={modoRegistro ? 'new-password' : 'current-password'}
+                required
+                disabled={cargando}
+              />
+
+              {modoRegistro && (
+                <>
+                  <label htmlFor="auth-confirm-password">
+                    CONFIRMAR CONTRASEÑA
+                  </label>
+                  <input
+                    id="auth-confirm-password"
+                    type="password"
+                    placeholder="Repite tu contraseña"
+                    value={confirmarPassword}
+                    onChange={(event) => setConfirmarPassword(event.target.value)}
+                    minLength={8}
+                    maxLength={72}
+                    autoComplete="new-password"
+                    required
+                    disabled={cargando}
+                  />
+                </>
+              )}
+
+              {mensaje && (
+                <div className={`auth-message ${tipoMensaje}`}>
+                  {mensaje}
+                </div>
+              )}
+
+              <button
+                className="auth-submit"
+                type="submit"
+                disabled={cargando}
+              >
+                {cargando
+                  ? 'CONECTANDO...'
+                  : modoRegistro
+                    ? 'CREAR CUENTA'
+                    : 'INICIAR SESIÓN'}
+                <span>→</span>
+              </button>
+            </form>
+
+            <div className="auth-switch">
+              {modoRegistro
+                ? '¿Ya tienes una cuenta?'
+                : '¿Todavía no tienes una cuenta?'}
+
+              <button
+                type="button"
+                onClick={cambiarModo}
+                disabled={cargando}
+              >
+                {modoRegistro ? 'Inicia sesión' : 'Regístrate'}
+              </button>
+            </div>
+
+            <div className="auth-security">
+              <span className="auth-security-dot"></span>
+              CONEXIÓN CON SERVIDOR SPRING BOOT
+            </div>
+
+            <div className="auth-copyright">
+              ROLO'S MOTOS CARS © 2026
+            </div>
+          </div>
+        </section>
+      </main>
+    )
+  }
+
+  // Consultar los registros de los módulos.
   const clientes = leerRegistros('rolos_motos_cars_clientes')
   const vehiculos = leerRegistros('rolos_motos_cars_vehiculos')
   const citas = leerRegistros('rolos_motos_cars_citas')
   const servicios = leerRegistros('rolos_motos_cars_servicios')
   const repuestos = leerRegistros('rolos_motos_cars_repuestos')
 
-  // Calcular los indicadores del taller.
   const citasProgramadas = citas.filter((cita) =>
     ['Programada', 'Confirmada'].includes(cita.estado)
   ).length
@@ -49,10 +333,10 @@ function App() {
 
   const stats = [
     {
-    label: 'Repuestos registrados',
-    value: repuestos.length,
-    detail: 'Referencias de inventario',
-    icon: '▤',
+      label: 'Repuestos registrados',
+      value: repuestos.length,
+      detail: 'Referencias de inventario',
+      icon: '▤',
     },
     {
       label: 'Clientes registrados',
@@ -131,11 +415,20 @@ function App() {
 
           <div className="user-area">
             <div className="notification">♧</div>
-            <div className="user-avatar">AS</div>
-            <div className="user-info">
-              <strong>Administrador</strong>
-              <span>Panel de control</span>
+            <div className="user-avatar">
+              {usuarioActual.substring(0, 2).toUpperCase()}
             </div>
+            <div className="user-info">
+              <strong>{usuarioActual}</strong>
+              <span>Usuario autenticado</span>
+            </div>
+            <button
+              className="logout-button"
+              onClick={cerrarSesion}
+              title="Cerrar sesión"
+            >
+              Salir ↗
+            </button>
           </div>
         </header>
 
